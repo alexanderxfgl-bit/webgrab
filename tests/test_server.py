@@ -9,7 +9,7 @@ class TestFetchTool:
     """Test the fetch MCP tool."""
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_fetch_success_text(self):
         from webgrab.server import fetch
@@ -113,7 +113,7 @@ class TestExtractTool:
     """Test the extract MCP tool."""
 
     def _run(self, coro):
-        return asyncio.get_event_loop().run_until_complete(coro)
+        return asyncio.run(coro)
 
     def test_extract_text(self):
         from webgrab.server import extract

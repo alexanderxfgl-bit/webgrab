@@ -11,8 +11,26 @@ Universal web page fetcher with cascading fallback. Tries each method in order a
 
 ## Install
 
+### From source
+
 ```bash
-uv sync
+git clone https://github.com/alexanderxfgl-bit/webgrab.git
+cd webgrab
+uv sync --extra dev
+```
+
+### As a CLI tool (global)
+
+```bash
+cd webgrab
+uv tool install .
+webgrab https://example.com
+```
+
+### With uvx (one-liner)
+
+```bash
+uvx --from webgrab webgrab https://example.com
 ```
 
 With cloudflare support:
@@ -20,40 +38,86 @@ With cloudflare support:
 uv sync --extra cloudflare
 ```
 
-## Usage
+## CLI Usage
 
 ```bash
-uv run webgrab https://example.com
-uv run webgrab https://example.com --format text
-uv run webgrab https://example.com --format html --timeout 10
+# Fetch a URL (defaults to markdown format)
+webgrab https://example.com
+
+# Choose output format
+webgrab https://example.com --format text
+webgrab https://example.com --format html
+webgrab https://example.com --format markdown
+
+# Set timeout per attempt (default 30s)
+webgrab https://example.com --timeout 10
+
+# Help
+webgrab --help
+```
+
+## MCP Server
+
+Start as a stdio MCP server that any MCP client can connect to:
+
+```bash
+# From project dir
+uv run webgrab --mcp
+
+# Via uvx
+uvx --from webgrab webgrab --mcp
+```
+
+### MCP Tools
+
+**fetch** - Fetch a web page and return content
+- `url` (string, required): The URL to fetch
+- `format` (string, optional): "text", "html", or "markdown" (default: "text")
+- `timeout` (integer, optional): Timeout in seconds per method (default: 15)
+
+**extract** - Extract readable text from raw HTML
+- `html_content` (string, required): Raw HTML to process
+- `format` (string, optional): "text" or "markdown" (default: "text")
+
+### MCP Client Config
+
+```json
+{
+  "mcpServers": {
+    "webgrab": {
+      "command": "uvx",
+      "args": ["--from", "webgrab", "webgrab", "--mcp"]
+    }
+  }
+}
 ```
 
 ## Dev
 
 ```bash
-# Lint + type check
+# Lint + format + type check
 uv run ruff check src/ tests/
 uv run ruff format src/ tests/
 uv run ty check src/webgrab/__init__.py
 
-# Tests (parallel with xdist)
-uv run pytest tests/ -n auto
+# Unit tests with coverage (parallel)
+uv run pytest tests/test_webgrab.py tests/test_server.py --cov=src --cov-report=term-missing -n auto
 
-# Tests with coverage
-uv run pytest tests/test_webgrab.py --cov=src --cov-report=term-missing -n auto
+# Integration tests (CI-safe)
+uv run pytest tests/test_integration.py -m "not local" -n auto
 
-# Integration tests (easy + medium)
-uv run pytest tests/test_integration.py -m "not slow" -n auto
+# All tests
+uv run pytest tests/ -m "not local" --cov=src --cov-fail-under=90 -n auto
 
-# Slow / hard URL tests
-uv run pytest tests/test_integration.py -m "slow" -n auto
+# Local-only tests (sites that block CI IPs)
+uv run pytest tests/test_integration.py -m "local" -n auto
 ```
 
 ## Hooks
 
-- **pre-commit**: ruff (lint + format) + ty + unit tests (90% coverage)
-- **pre-push**: unit tests (90% coverage) + integration tests
+- **pre-commit**: ruff (lint + format) + ty + full test suite (90% coverage)
+- **pre-push**: full test suite (90% coverage)
 
 ## CI
 
-GitHub Actions runs lint, unit tests, integration tests, and slow tests on every push/PR.
+GitHub Actions runs lint, tests, and integration tests on every push/PR. Only CI-safe tests run in CI; flaky external sites are marked `local` and run manually.
