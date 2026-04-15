@@ -35,6 +35,7 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short -n auto"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "local: marks tests that only work locally (skip in CI)",
 ]
 
 [tool.coverage.run]
