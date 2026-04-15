@@ -43,14 +43,3 @@ jobs:
       - run: uv sync --extra dev
       - name: integration tests (CI-safe only)
         run: uv run pytest tests/test_integration.py -v -m "not local" -n auto
-
-  local-only:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
-      - run: uv sync --extra dev
-      - name: local-only tests (expected to be flaky from CI)
-        run: uv run pytest tests/test_integration.py -v -m "local" -n auto
-        continue-on-error: true
