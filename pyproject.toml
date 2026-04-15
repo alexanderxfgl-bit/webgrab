@@ -3,7 +3,7 @@ name = "webgrab"
 version = "1.0.0"
 description = "Universal web page fetcher with cascading fallback"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["mcp>=1.0"]
 
 [project.optional-dependencies]
 cloudflare = ["cloudscraper>=1.2"]
@@ -19,6 +19,7 @@ dev = [
 
 [project.scripts]
 webgrab = "webgrab:main"
+webgrab-mcp = "webgrab.server:main"
 
 [build-system]
 requires = ["hatchling"]
