@@ -5,9 +5,12 @@ Universal web page fetcher with cascading fallback. Tries each method in order a
 ## Cascade Order
 
 1. **requests** (plain urllib) - fastest, no deps
-2. **cloudscraper** - cloudflare bypass (optional)
-3. **jina** - Jina Reader API (free, no key)
-4. **chrome-headless** - last resort, needs chrome binary
+2. **cloudscraper** - cloudflare bypass (native interpreter) - REQUIRED
+3. **cloudscraper-js** - cloudflare bypass (nodejs interpreter) - REQUIRED
+4. **jina** - Jina Reader API (free, no key)
+5. **nodriver** - undetectable chrome via CDP
+6. **zendriver** - CDP browser automation
+7. **chrome-headless** - last resort, needs chrome binary
 
 ## Install
 
@@ -19,23 +22,22 @@ cd webgrab
 uv sync --extra dev
 ```
 
-### As a CLI tool (global)
+### Via uvx (recommended - no install needed)
+
+```bash
+# One-liner - auto-installs from git
+uvx --from git+https://github.com/alexanderxfgl-bit/webgrab.git webgrab https://example.com
+
+# Help
+uvx --from git+https://github.com/alexanderxfgl-bit/webgrab.git webgrab --help
+```
+
+### As a global CLI tool
 
 ```bash
 cd webgrab
 uv tool install .
 webgrab https://example.com
-```
-
-### With uvx (one-liner)
-
-```bash
-uvx --from webgrab webgrab https://example.com
-```
-
-With cloudflare support:
-```bash
-uv sync --extra cloudflare
 ```
 
 ## CLI Usage
@@ -86,11 +88,39 @@ uvx --from webgrab webgrab --mcp
   "mcpServers": {
     "webgrab": {
       "command": "uvx",
-      "args": ["--from", "webgrab", "webgrab", "--mcp"]
+      "args": ["--from", "git+https://github.com/alexanderxfgl-bit/webgrab.git", "webgrab", "--mcp"]
     }
   }
 }
 ```
+
+## Browser Dependencies
+
+For **nodriver**, **zendriver**, and **chrome-headless** methods to work, Chrome/Chromium must be available.
+
+### Linux (Debian/Ubuntu)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y chromium-browser
+```
+
+### macOS
+
+```bash
+# Already installed on most Macs at /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
+```
+
+### Docker/Custom Paths
+
+If Chrome is installed in a non-standard location, set `CHROME_BIN` env var:
+
+```bash
+export CHROME_BIN=/path/to/chrome
+webgrab https://example.com
+```
+
+The `chrome-launch.sh` wrapper in the repo sets `LD_LIBRARY_PATH` for bundled Chrome builds in containers.
 
 ## Dev
 
