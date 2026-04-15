@@ -163,27 +163,8 @@ METHODS: list[tuple[str, Any]] = [
 ]
 
 
-def main() -> None:
-    """CLI entry point."""
-    if len(sys.argv) < 2:
-        print("Usage: webgrab <url> [--format text|markdown|html] [--timeout 30]", file=sys.stderr)
-        sys.exit(2)
-
-    url = sys.argv[1]
-    fmt = "markdown"
-    timeout = 30
-
-    i = 2
-    while i < len(sys.argv):
-        if sys.argv[i] == "--format":
-            fmt = sys.argv[i + 1]
-            i += 2
-        elif sys.argv[i] == "--timeout":
-            timeout = int(sys.argv[i + 1])
-            i += 2
-        else:
-            i += 1
-
+def _fetch_url(url: str, fmt: str, timeout: int) -> None:
+    """Fetch a URL and print output."""
     import time
 
     log(f"webgrab: fetching {url} (format={fmt})")
@@ -219,6 +200,34 @@ def main() -> None:
 
     print(output)
     log(f"method={method_used} format={fmt} chars={len(output)}")
+
+
+def main() -> None:
+    """CLI entry point."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="webgrab",
+        description="Universal web page fetcher with cascading fallback",
+    )
+    parser.add_argument("url", nargs="?", help="URL to fetch")
+    parser.add_argument("--format", choices=["text", "markdown", "html"], default="markdown")
+    parser.add_argument("--timeout", type=int, default=30)
+    parser.add_argument("--mcp", action="store_true", help="Start MCP server on stdio")
+
+    args = parser.parse_args()
+
+    if args.mcp:
+        from webgrab.server import mcp
+
+        mcp.run(transport="stdio")
+        return
+
+    if not args.url:
+        parser.print_help(sys.stderr)
+        sys.exit(2)
+
+    _fetch_url(args.url, args.format, args.timeout)
 
 
 if __name__ == "__main__":

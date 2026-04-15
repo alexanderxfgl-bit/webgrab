@@ -527,11 +527,11 @@ class TestMain:
             _run_main(["http://x.com"])
         assert call_log == ["req", "cs"]
 
-    def test_unknown_flag_ignored(self):
+    def test_unknown_flag_exits(self):
         fake = [("req", _mock_method(_long_html()))]
         with patch("webgrab.METHODS", fake):
             _, _, code = _run_main(["http://x.com", "--bogus", "val"])
-        assert code == 0
+        assert code == 2
 
     def test_stderr_logging(self):
         fake = [("req", _mock_method(_long_html()))]
