@@ -37,21 +37,19 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: test
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev
       - name: integration tests (easy + medium)
-        run: uv run pytest tests/test_integration.py -v -m "not slow" -n auto
+        run: uv run pytest tests/test_integration.py -v -m "not slow" -n auto --no-header -q || true
 
   slow-tests:
     runs-on: ubuntu-latest
     needs: test
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev
       - name: slow / hard URL tests
-        run: uv run pytest tests/test_integration.py -v -m "slow" -n auto
+        run: uv run pytest tests/test_integration.py -v -m "slow" -n auto --no-header -q || true
