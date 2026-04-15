@@ -7,7 +7,6 @@ import pytest
 
 from webgrab import try_chrome_headless, try_cloudscraper, try_jina, try_requests
 
-
 # -- CI-SAFE: reliable static sites that work from any IP --
 
 
@@ -106,9 +105,7 @@ class TestLocalOnly:
 
 @pytest.mark.local
 @pytest.mark.skipif(
-    not os.path.exists(
-        os.environ.get("WEBGRAB_CHROME", "/home/node/chrome/chrome-linux64/chrome")
-    ),
+    not os.path.exists(os.environ.get("WEBGRAB_CHROME", "/home/node/chrome/chrome-linux64/chrome")),
     reason="chrome binary not found",
 )
 class TestChromeHeadless:
