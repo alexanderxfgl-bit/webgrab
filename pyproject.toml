@@ -1,0 +1,61 @@
+[project]
+name = "webgrab"
+version = "1.0.0"
+description = "Universal web page fetcher with cascading fallback"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+cloudflare = ["cloudscraper>=1.2"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "pytest-xdist>=3.0",
+    "pytest-asyncio>=0.23",
+    "cloudscraper>=1.2",
+    "ruff>=0.4",
+    "ty>=0.0.30",
+]
+
+[project.scripts]
+webgrab = "webgrab:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/webgrab"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short -n auto"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+parallel = true
+omit = ["*/tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
