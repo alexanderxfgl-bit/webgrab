@@ -3,16 +3,14 @@ name = "webgrab"
 version = "1.0.0"
 description = "Universal web page fetcher with cascading fallback"
 requires-python = ">=3.11"
-dependencies = ["mcp>=1.0"]
+dependencies = ["mcp>=1.0", "cloudscraper>=1.2", "nodriver>=0.38", "zendriver>=0.14"]
 
 [project.optional-dependencies]
-cloudflare = ["cloudscraper>=1.2"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=4.1",
     "pytest-xdist>=3.0",
     "pytest-asyncio>=0.23",
-    "cloudscraper>=1.2",
     "ruff>=0.4",
     "ty>=0.0.30",
 ]

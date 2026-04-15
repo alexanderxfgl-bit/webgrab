@@ -15,7 +15,9 @@ from webgrab import (
     main,
     try_chrome_headless,
     try_jina,
+    try_nodriver,
     try_requests,
+    try_zendriver,
 )
 
 # -- helpers --
@@ -250,8 +252,15 @@ class TestTryChromeHeadless:
             patch("os.path.exists", return_value=True),
             patch.object(subprocess, "run", return_value=mock_result) as mo,
         ):
-            try_chrome_headless("http://example.com")
+            # Reload to pick up env var
+            import importlib
+
+            import webgrab
+
+            importlib.reload(webgrab)
+            webgrab.try_chrome_headless("http://example.com")
             assert "/custom/chrome" in mo.call_args[0][0][0]
+            importlib.reload(webgrab)
 
 
 # -- try_jina --
@@ -552,12 +561,213 @@ class TestMain:
 # -- module checks --
 
 
+# -- try_cloudscraper_js --
+
+
+class TestTryCloudscraperJs:
+    def test_success(self, monkeypatch):
+        import importlib
+
+        mock_scraper = MagicMock()
+        mock_resp = MagicMock(status_code=200)
+        mock_resp.text = "<html><body>JS bypassed " * 15 + "</body></html>"
+        mock_scraper.get.return_value = mock_resp
+        mock_cs = MagicMock(create_scraper=MagicMock(return_value=mock_scraper))
+        monkeypatch.setitem(sys.modules, "cloudscraper", mock_cs)
+        importlib.reload(sys.modules["webgrab"])
+        html, err = sys.modules["webgrab"].try_cloudscraper_js("http://example.com")
+        assert html is not None
+        assert "JS bypassed" in html
+
+    def test_uses_nodejs_interpreter(self, monkeypatch):
+        import importlib
+
+        mock_cs = MagicMock()
+        mock_cs.create_scraper = MagicMock(
+            return_value=MagicMock(get=MagicMock(return_value=MagicMock(status_code=200, text="x" * 300)))
+        )
+        monkeypatch.setitem(sys.modules, "cloudscraper", mock_cs)
+        importlib.reload(sys.modules["webgrab"])
+        sys.modules["webgrab"].try_cloudscraper_js("http://example.com")
+        mock_cs.create_scraper.assert_called_once()
+        call_kwargs = mock_cs.create_scraper.call_args
+        assert call_kwargs.kwargs.get("interpreter") == "nodejs" or call_kwargs[1].get("interpreter") == "nodejs"
+
+    def test_403(self, monkeypatch):
+        import importlib
+
+        mock_scraper = MagicMock()
+        mock_resp = MagicMock(status_code=403, text="blocked")
+        mock_scraper.get.return_value = mock_resp
+        mock_cs = MagicMock(create_scraper=MagicMock(return_value=mock_scraper))
+        monkeypatch.setitem(sys.modules, "cloudscraper", mock_cs)
+        importlib.reload(sys.modules["webgrab"])
+        html, err = sys.modules["webgrab"].try_cloudscraper_js("http://example.com")
+        assert html is None
+        assert err == "403 forbidden"
+
+
+# -- try_nodriver --
+
+
+class TestTryNodriver:
+    def test_no_chrome(self):
+        with patch("os.path.exists", return_value=False):
+            html, err = try_nodriver("http://example.com")
+        assert html is None
+        assert err == "chrome binary not found"
+
+    def test_not_installed(self):
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"nodriver": None}):
+            html, err = try_nodriver("http://example.com")
+        assert html is None
+        assert err == "nodriver not installed"
+
+    def test_success(self):
+        """Actually exercise the try_nodriver code path with AsyncMock."""
+        from unittest.mock import AsyncMock
+
+        fake_html = "<html><body>nodriver content</body></html>" * 20
+        mock_browser = MagicMock()
+        mock_page = MagicMock()
+        mock_page.get_content = MagicMock(return_value=fake_html)
+        mock_page.get = AsyncMock()
+        mock_browser.get = AsyncMock(return_value=mock_page)
+        mock_browser.stop = AsyncMock()
+
+        mock_nd = MagicMock()
+        mock_nd.start = AsyncMock(return_value=mock_browser)
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"nodriver": mock_nd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_nodriver("http://example.com")
+        assert html is not None
+        assert "nodriver content" in html
+
+    def test_too_short(self):
+        from unittest.mock import AsyncMock
+
+        mock_browser = MagicMock()
+        mock_page = MagicMock()
+        mock_page.get_content = MagicMock(return_value="short")
+        mock_page.get = AsyncMock()
+        mock_browser.get = AsyncMock(return_value=mock_page)
+        mock_browser.stop = AsyncMock()
+
+        mock_nd = MagicMock()
+        mock_nd.start = AsyncMock(return_value=mock_browser)
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"nodriver": mock_nd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_nodriver("http://example.com")
+        assert html is None
+        assert err == "too short"
+
+    def test_exception(self):
+        from unittest.mock import AsyncMock
+
+        mock_nd = MagicMock()
+        mock_nd.start = AsyncMock(side_effect=RuntimeError("chrome crash"))
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"nodriver": mock_nd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_nodriver("http://example.com")
+        assert html is None
+        assert "chrome crash" in err
+
+
+# -- try_zendriver --
+
+
+class TestTryZendriver:
+    def test_no_chrome(self):
+        with patch("os.path.exists", return_value=False):
+            html, err = try_zendriver("http://example.com")
+        assert html is None
+        assert err == "chrome binary not found"
+
+    def test_not_installed(self):
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"zendriver": None}):
+            html, err = try_zendriver("http://example.com")
+        assert html is None
+        assert err == "zendriver not installed"
+
+    def test_success(self):
+        from unittest.mock import AsyncMock
+
+        fake_html = "<html><body>zendriver content</body></html>" * 20
+        mock_page = MagicMock()
+        mock_page.get = AsyncMock()
+        mock_page.get_content = MagicMock(return_value=fake_html)
+        mock_browser = MagicMock()
+        mock_browser.main_tab = mock_page
+        mock_browser.stop = MagicMock()
+
+        mock_zd = MagicMock()
+        mock_zd.start = AsyncMock(return_value=mock_browser)
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"zendriver": mock_zd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_zendriver("http://example.com")
+        assert html is not None
+        assert "zendriver content" in html
+
+    def test_too_short(self):
+        from unittest.mock import AsyncMock
+
+        mock_page = MagicMock()
+        mock_page.get = AsyncMock()
+        mock_page.get_content = MagicMock(return_value="short")
+        mock_browser = MagicMock()
+        mock_browser.main_tab = mock_page
+        mock_browser.stop = MagicMock()
+
+        mock_zd = MagicMock()
+        mock_zd.start = AsyncMock(return_value=mock_browser)
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"zendriver": mock_zd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_zendriver("http://example.com")
+        assert html is None
+        assert err == "too short"
+
+    def test_exception(self):
+        from unittest.mock import AsyncMock
+
+        mock_zd = MagicMock()
+        mock_zd.start = AsyncMock(side_effect=RuntimeError("zendriver fail"))
+
+        with patch("os.path.exists", return_value=True), patch.dict(sys.modules, {"zendriver": mock_zd}):
+            import importlib
+
+            importlib.reload(sys.modules["webgrab"])
+            html, err = sys.modules["webgrab"].try_zendriver("http://example.com")
+        assert html is None
+        assert "zendriver fail" in err
+
+
+# -- module checks --
+
+
 class TestModule:
     def test_public_api(self):
         for name in (
             "try_requests",
             "try_cloudscraper",
+            "try_cloudscraper_js",
             "try_jina",
+            "try_nodriver",
+            "try_zendriver",
             "try_chrome_headless",
             "extract_text",
             "html_to_basic_md",
@@ -567,12 +777,19 @@ class TestModule:
             assert callable(getattr(sys.modules["webgrab"], name)), f"{name} not callable"
 
     def test_methods_count(self):
-        assert len(METHODS) == 4
+        assert len(METHODS) == 7
 
     def test_method_names(self):
         assert [m[0] for m in METHODS] == [
             "requests",
             "cloudscraper",
+            "cloudscraper-js",
             "jina",
+            "nodriver",
+            "zendriver",
             "chrome-headless",
         ]
+
+    def test_cloudscraper_required(self):
+        """cloudscraper should be importable (not optional)."""
+        import cloudscraper  # noqa: F401

@@ -5,11 +5,24 @@ import asyncio
 
 from mcp.server.fastmcp import FastMCP
 
-from webgrab import extract_text, html_to_basic_md, try_chrome_headless, try_cloudscraper, try_jina, try_requests
+from webgrab import (
+    extract_text,
+    html_to_basic_md,
+    try_chrome_headless,
+    try_cloudscraper,
+    try_cloudscraper_js,
+    try_jina,
+    try_nodriver,
+    try_requests,
+    try_zendriver,
+)
 
 mcp = FastMCP(
     "webgrab",
-    instructions="Universal web page fetcher with cascading fallback. Tries requests > cloudscraper > jina reader > chrome headless.",
+    instructions=(
+        "Universal web page fetcher with cascading fallback. "
+        "Tries requests > cloudscraper > cloudscraper-js > jina > nodriver > zendriver > chrome-headless."
+    ),
 )
 
 
@@ -18,7 +31,10 @@ async def _fetch(url: str, timeout: int = 15) -> tuple[str | None, str | None, s
     methods = [
         ("requests", try_requests),
         ("cloudscraper", try_cloudscraper),
+        ("cloudscraper-js", try_cloudscraper_js),
         ("jina", try_jina),
+        ("nodriver", try_nodriver),
+        ("zendriver", try_zendriver),
         ("chrome-headless", try_chrome_headless),
     ]
     for name, fn in methods:

@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 """webgrab - Universal web page fetcher with cascading fallback."""
 
+import os
 import re
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 from typing import Any
+
+# Chrome binary setup
+_CHROME_BIN = os.environ.get(
+    "WEBGRAB_CHROME",
+    "/home/node/chrome/chrome-linux64/chrome",
+)
+_CHROME_WRAPPER = os.path.join(os.path.dirname(_CHROME_BIN), "chrome-launch.sh")
+# If wrapper exists, use it (sets LD_LIBRARY_PATH for chrome)
+if os.path.exists(_CHROME_WRAPPER):
+    _CHROME_BIN = _CHROME_WRAPPER
 
 
 def log(msg: str) -> None:
@@ -36,11 +47,32 @@ def try_requests(url: str, timeout: int = 15) -> tuple[str | None, str | None]:
 
 
 def try_cloudscraper(url: str, timeout: int = 15) -> tuple[str | None, str | None]:
-    """cloudscraper for cloudflare bypass (optional dep)."""
+    """cloudscraper normal mode - bypasses basic cloudflare challenges."""
     try:
         import cloudscraper  # type: ignore[import-untyped]
 
-        s = cloudscraper.create_scraper()
+        s = cloudscraper.create_scraper(interpreter="native")
+        s.headers["User-Agent"] = (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+        )
+        r = s.get(url, timeout=timeout)
+        if r.status_code == 403:
+            return None, "403 forbidden"
+        if len(r.text) < 200:
+            return None, "too short"
+        return r.text, None
+    except ImportError:
+        return None, "cloudscraper not installed"
+    except Exception as e:
+        return None, str(e)[:100]
+
+
+def try_cloudscraper_js(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
+    """cloudscraper JS mode - solves cloudflare JS challenges using Node.js interpreter."""
+    try:
+        import cloudscraper  # type: ignore[import-untyped]
+
+        s = cloudscraper.create_scraper(interpreter="nodejs")
         s.headers["User-Agent"] = (
             "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         )
@@ -73,16 +105,79 @@ def try_jina(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
         return None, str(e)[:100]
 
 
+def try_nodriver(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
+    """nodriver (undetected chrome) - bypasses bot detection, JS rendering."""
+    if not os.path.exists(_CHROME_BIN):
+        return None, "chrome binary not found"
+    try:
+        import asyncio
+
+        import nodriver as nd  # type: ignore[import-untyped]
+
+        result: str | None = None
+
+        async def _fetch() -> None:
+            nonlocal result
+            browser = await nd.start(
+                browser_executable_path=_CHROME_BIN,
+                no_sandbox=True,
+                headless=True,
+            )
+            page = await browser.get(url)
+            result = page.get_content()
+            await browser.stop()
+
+        asyncio.run(_fetch())
+        if result and len(result) >= 200:
+            return result, None
+        return None, "too short"
+    except ImportError:
+        return None, "nodriver not installed"
+    except Exception as e:
+        return None, str(e)[:100]
+
+
+def try_zendriver(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
+    """zendriver - CDP-based browser automation, headless JS rendering."""
+    if not os.path.exists(_CHROME_BIN):
+        return None, "chrome binary not found"
+    try:
+        import asyncio
+
+        import zendriver  # type: ignore[import-untyped]
+
+        result: str | None = None
+
+        async def _fetch() -> None:
+            nonlocal result
+            browser = await zendriver.start(
+                browser_executable_path=_CHROME_BIN,
+                headless=True,
+                sandbox=False,
+                browser_connection_timeout=timeout,
+            )
+            page = browser.main_tab
+            await page.get(url)
+            result = page.get_content()
+            browser.stop()
+
+        asyncio.run(_fetch())
+        if result and len(result) >= 200:
+            return result, None
+        return None, "too short"
+    except ImportError:
+        return None, "zendriver not installed"
+    except Exception as e:
+        return None, str(e)[:100]
+
+
 def try_chrome_headless(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
     """Chrome headless --dump-dom (last resort, needs chrome binary)."""
-    import os
-
-    chrome = os.environ.get("WEBGRAB_CHROME", "/home/node/chrome/chrome-linux64/chrome")
-    if not os.path.exists(chrome):
+    if not os.path.exists(_CHROME_BIN):
         return None, "chrome binary not found"
     try:
         result = subprocess.run(
-            [chrome, "--headless", "--no-sandbox", "--disable-gpu", "--dump-dom", url],
+            [_CHROME_BIN, "--headless", "--no-sandbox", "--disable-gpu", "--dump-dom", url],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -158,7 +253,10 @@ def html_to_basic_md(html: str, max_chars: int = 50000) -> str:
 METHODS: list[tuple[str, Any]] = [
     ("requests", try_requests),
     ("cloudscraper", try_cloudscraper),
+    ("cloudscraper-js", try_cloudscraper_js),
     ("jina", try_jina),
+    ("nodriver", try_nodriver),
+    ("zendriver", try_zendriver),
     ("chrome-headless", try_chrome_headless),
 ]
 

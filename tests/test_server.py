@@ -42,7 +42,10 @@ class TestFetchTool:
         with (
             patch("webgrab.server.try_requests", return_value=(None, "blocked")),
             patch("webgrab.server.try_cloudscraper", return_value=(None, "403")),
+            patch("webgrab.server.try_cloudscraper_js", return_value=(None, "403")),
             patch("webgrab.server.try_jina", return_value=(None, "err")),
+            patch("webgrab.server.try_nodriver", return_value=(None, "no chrome")),
+            patch("webgrab.server.try_zendriver", return_value=(None, "no chrome")),
             patch("webgrab.server.try_chrome_headless", return_value=(None, "no chrome")),
         ):
             result = self._run(fetch("http://example.com"))
@@ -63,6 +66,10 @@ class TestFetchTool:
             call_log.append("cs")
             return None, "fail"
 
+        def fake_cs_js(*a, **k):
+            call_log.append("cs-js")
+            return None, "fail"
+
         def fake_jina(*a, **k):
             call_log.append("jina")
             return html, None
@@ -70,13 +77,18 @@ class TestFetchTool:
         with (
             patch("webgrab.server.try_requests", side_effect=fake_requests),
             patch("webgrab.server.try_cloudscraper", side_effect=fake_cloudscraper),
+            patch("webgrab.server.try_cloudscraper_js", side_effect=fake_cs_js),
             patch("webgrab.server.try_jina", side_effect=fake_jina),
-            patch("webgrab.server.try_chrome_headless") as chrome_mock,
+            patch("webgrab.server.try_nodriver") as nd_mock,
+            patch("webgrab.server.try_zendriver") as zd_mock,
+            patch("webgrab.server.try_chrome_headless") as ch_mock,
         ):
             result = self._run(fetch("http://example.com"))
         assert "from jina" in result
-        assert call_log == ["req", "cs", "jina"]
-        chrome_mock.assert_not_called()
+        assert call_log == ["req", "cs", "cs-js", "jina"]
+        nd_mock.assert_not_called()
+        zd_mock.assert_not_called()
+        ch_mock.assert_not_called()
 
     def test_fetch_exception_caught(self):
         from webgrab.server import fetch
@@ -107,6 +119,73 @@ class TestFetchTool:
         with patch("webgrab.server.try_requests", return_value=(html, None)) as mo:
             self._run(fetch("http://example.com"))
         mo.assert_called_once_with("http://example.com", 15)
+
+    def test_fetch_cloudscraper_js_used(self):
+        """cloudscraper-js is tried before jina."""
+        from webgrab.server import fetch
+
+        html = "<p>cs-js result</p>" * 30
+        call_log = []
+
+        def fake_cs_js(*a, **k):
+            call_log.append("cs-js")
+            return html, None
+
+        with (
+            patch("webgrab.server.try_requests", return_value=(None, "fail")),
+            patch("webgrab.server.try_cloudscraper", return_value=(None, "403")),
+            patch("webgrab.server.try_cloudscraper_js", side_effect=fake_cs_js),
+            patch("webgrab.server.try_jina") as jina_mock,
+            patch("webgrab.server.try_nodriver") as nd_mock,
+            patch("webgrab.server.try_zendriver") as zd_mock,
+            patch("webgrab.server.try_chrome_headless") as ch_mock,
+        ):
+            result = self._run(fetch("http://example.com"))
+        assert "cs-js result" in result
+        assert call_log == ["cs-js"]
+        jina_mock.assert_not_called()
+        nd_mock.assert_not_called()
+        zd_mock.assert_not_called()
+        ch_mock.assert_not_called()
+
+    def test_fetch_nodriver_used(self):
+        """nodriver is tried before zendriver and chrome-headless."""
+        from webgrab.server import fetch
+
+        html = "<p>nodriver result</p>" * 30
+
+        with (
+            patch("webgrab.server.try_requests", return_value=(None, "fail")),
+            patch("webgrab.server.try_cloudscraper", return_value=(None, "403")),
+            patch("webgrab.server.try_cloudscraper_js", return_value=(None, "403")),
+            patch("webgrab.server.try_jina", return_value=(None, "err")),
+            patch("webgrab.server.try_nodriver", return_value=(html, None)),
+            patch("webgrab.server.try_zendriver") as zd_mock,
+            patch("webgrab.server.try_chrome_headless") as ch_mock,
+        ):
+            result = self._run(fetch("http://example.com"))
+        assert "nodriver result" in result
+        zd_mock.assert_not_called()
+        ch_mock.assert_not_called()
+
+    def test_fetch_zendriver_used(self):
+        """zendriver is tried before chrome-headless."""
+        from webgrab.server import fetch
+
+        html = "<p>zendriver result</p>" * 30
+
+        with (
+            patch("webgrab.server.try_requests", return_value=(None, "fail")),
+            patch("webgrab.server.try_cloudscraper", return_value=(None, "403")),
+            patch("webgrab.server.try_cloudscraper_js", return_value=(None, "403")),
+            patch("webgrab.server.try_jina", return_value=(None, "err")),
+            patch("webgrab.server.try_nodriver", return_value=(None, "fail")),
+            patch("webgrab.server.try_zendriver", return_value=(html, None)),
+            patch("webgrab.server.try_chrome_headless") as ch_mock,
+        ):
+            result = self._run(fetch("http://example.com"))
+        assert "zendriver result" in result
+        ch_mock.assert_not_called()
 
 
 class TestExtractTool:
