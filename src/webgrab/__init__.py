@@ -120,7 +120,7 @@ def try_nodriver(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
             nonlocal result
             browser = await nd.start(
                 browser_executable_path=_CHROME_BIN,
-                no_sandbox=True,
+                sandbox=False,
                 headless=True,
             )
             page = await browser.get(url)
@@ -157,6 +157,8 @@ def try_zendriver(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
                 browser_connection_timeout=timeout,
             )
             page = browser.main_tab
+            if page is None:
+                return
             await page.get(url)
             result = page.get_content()
             browser.stop()
