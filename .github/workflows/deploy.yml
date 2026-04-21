@@ -50,4 +50,13 @@ jobs:
       - name: Verify health
         run: |
           sleep 3
-          curl -sf "http://${{ secrets.VM_IP }}:8721/health" && echo "OK" || echo "WARN: health check failed"
+          # Check if MCP endpoint is responding (returns 405 for GET, which means it's alive)
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://${{ secrets.VM_IP }}:8721/mcp" || echo "000")
+          if [ "$HTTP_CODE" = "405" ]; then
+            echo "OK: MCP server is running (HTTP 405 = expects POST)"
+          elif [ "$HTTP_CODE" = "000" ]; then
+            echo "FAIL: Server not responding"
+            exit 1
+          else
+            echo "WARN: Unexpected HTTP $HTTP_CODE"
+          fi
