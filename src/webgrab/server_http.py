@@ -303,6 +303,14 @@ mcp = FastMCP(
 )
 
 
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    """Health check endpoint for deploy verification."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok", "version": "2.1.0"})
+
+
 @mcp.tool()
 def fetch(url: str, format: str = "markdown", timeout: int = 30) -> str:
     """Fetch a URL and return its content. Uses a cascading fallback: requests -> cloudscraper -> cloudscraper-js -> jina -> chrome-headless -> nodriver -> zendriver.
