@@ -120,7 +120,11 @@ def try_chrome_headless(url: str, timeout: int = 20) -> tuple[str | None, str | 
             return None, "too short"
         # Detect Cloudflare challenge pages
         lower = html.lower()
-        if "just a moment" in lower or "checking your browser" in lower or "enable javascript and cookies to continue" in lower:
+        if (
+            "just a moment" in lower
+            or "checking your browser" in lower
+            or "enable javascript and cookies to continue" in lower
+        ):
             return None, "cloudflare challenge page"
         return html, None
     except subprocess.TimeoutExpired:

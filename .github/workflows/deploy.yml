@@ -6,9 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  wait-for-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for all CI checks to pass
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-regexp: lint|test|mcp|integration
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
   deploy:
     runs-on: ubuntu-latest
     environment: production
+    needs: wait-for-ci
     steps:
       - name: Setup SSH key
         run: |
