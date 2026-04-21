@@ -30,7 +30,8 @@ jobs:
               git clone https://github.com/alexanderxfgl-bit/webgrab.git ~/webgrab
             fi
             cd ~/webgrab
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             # Ensure uv is available
             if ! command -v uv &>/dev/null; then
               curl -LsSf https://astral.sh/uv/install.sh | sh
