@@ -43,6 +43,9 @@ jobs:
             fi
             source ~/webgrab-venv/bin/activate
             uv pip install -e .
+            # Update systemd service to point to new server file
+            sudo sed -i 's|/home/alexanderxfgl/webgrab_http_server.py|/home/alexanderxfgl/webgrab/src/webgrab/server_http.py|' /etc/systemd/system/webgrab.service
+            sudo systemctl daemon-reload
             sudo systemctl restart webgrab
             sleep 2
             sudo systemctl status webgrab --no-pager
