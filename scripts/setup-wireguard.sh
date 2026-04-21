@@ -1,6 +1,7 @@
 #!/bin/bash
 # WireGuard VPN setup for webgrab VM
 # This script installs and configures WireGuard to bypass IP blocks
+# Expects WIREGUARD_PRIVATE_KEY and WIREGUARD_PSK environment variables
 
 set -e
 
@@ -10,18 +11,28 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Validate required env vars
+if [ -z "$WIREGUARD_PRIVATE_KEY" ]; then
+    echo "ERROR: WIREGUARD_PRIVATE_KEY not set"
+    exit 1
+fi
+
+if [ -z "$WIREGUARD_PSK" ]; then
+    echo "ERROR: WIREGUARD_PSK not set"
+    exit 1
+fi
+
 # Install wireguard-tools
 if ! command -v wg &> /dev/null; then
     echo "Installing WireGuard..."
     apt-get update -qq
-    apt-get install -y -qq wireguard-tools
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard-tools
 fi
 
 # Create wireguard config directory
 mkdir -p /etc/wireguard
 
 # Write the config file with keys from environment variables
-# These should be set in the GitHub workflow or systemd service
 cat > /etc/wireguard/wg0.conf << EOF
 [Interface]
 Address = 10.139.40.237/32
@@ -42,7 +53,8 @@ chmod 600 /etc/wireguard/wg0.conf
 
 # Enable and start the service
 systemctl enable wg-quick@wg0
-systemctl start wg-quick@wg0
+systemctl restart wg-quick@wg0 || systemctl start wg-quick@wg0
 
-echo "WireGuard setup complete. Interface wg0 should be up."
-echo "Run 'wg show' to verify."
+echo "WireGuard setup complete."
+echo "Interface status:"
+wg show wg0 2>/dev/null || echo "wg0 not yet active"
