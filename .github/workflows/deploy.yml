@@ -20,6 +20,9 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}" << 'DEPLOY'
             set -e
+            if [ ! -d ~/webgrab ]; then
+              git clone https://github.com/alexanderxfgl-bit/webgrab.git ~/webgrab
+            fi
             cd ~/webgrab
             git pull origin main
             source ~/webgrab-venv/bin/activate
