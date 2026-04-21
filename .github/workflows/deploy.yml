@@ -17,28 +17,8 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "${{ secrets.VM_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Write WireGuard config
-        run: |
-          cat > /tmp/wg0.conf << EOF
-          [Interface]
-          Address = 10.139.40.237/32
-          PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}
-          MTU = 1320
-          DNS = 10.128.0.1
-
-          [Peer]
-          PublicKey = PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=
-          PresharedKey = ${{ secrets.WIREGUARD_PSK }}
-          Endpoint = 146.70.179.196:1637
-          AllowedIPs = 0.0.0.0/0,::/0
-          PersistentKeepalive = 15
-          EOF
-          chmod 600 /tmp/wg0.conf
-
       - name: Deploy to VM
         run: |
-          # Copy WireGuard config to VM
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no /tmp/wg0.conf "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}:/tmp/wg0.conf"
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}" << 'DEPLOY'
             set -e
             # Ensure basic tools
@@ -63,16 +43,6 @@ jobs:
             fi
             source ~/webgrab-venv/bin/activate
             uv pip install -e .
-            # Install WireGuard if needed
-            if ! command -v wg &>/dev/null; then
-              sudo apt-get update -qq
-              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wireguard-tools
-            fi
-            # Move WireGuard config into place
-            sudo mv /tmp/wg0.conf /etc/wireguard/wg0.conf
-            sudo chmod 600 /etc/wireguard/wg0.conf
-            sudo systemctl enable wg-quick@wg0
-            sudo systemctl restart wg-quick@wg0 || sudo systemctl start wg-quick@wg0
             # Update systemd service to point to new server file
             sudo sed -i 's|/home/alexanderxfgl/webgrab_http_server.py|/home/alexanderxfgl/webgrab/src/webgrab/server_http.py|' /etc/systemd/system/webgrab.service
             sudo systemctl daemon-reload
