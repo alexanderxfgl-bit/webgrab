@@ -122,6 +122,105 @@ class TestExtractContent:
         assert result["content"] == html
 
 
+class TestChallengeDetection:
+    """Test _is_challenge_page helper."""
+
+    def test_detects_just_a_moment(self):
+        from webgrab.server_http import _is_challenge_page
+
+        assert _is_challenge_page("<html><body>Just a moment...</body></html>")
+
+    def test_detects_checking_browser(self):
+        from webgrab.server_http import _is_challenge_page
+
+        assert _is_challenge_page("<html><body>Checking your browser</body></html>")
+
+    def test_allows_normal_page(self):
+        from webgrab.server_http import _is_challenge_page
+
+        assert not _is_challenge_page("<html><body><h1>Hello World</h1></body></html>")
+
+
+class TestDiskCache:
+    """Test disk cache functions."""
+
+    def test_cache_miss(self, tmp_path):
+        from webgrab.server_http import _cache_get, _CACHE_DIR
+        import webgrab.server_http as mod
+
+        old = _CACHE_DIR
+        mod._CACHE_DIR = tmp_path
+        try:
+            assert _cache_get("https://example.com", "markdown") is None
+        finally:
+            mod._CACHE_DIR = old
+
+    def test_cache_put_and_get(self, tmp_path):
+        from webgrab.server_http import _cache_get, _cache_put, _CACHE_DIR
+        import webgrab.server_http as mod
+
+        old = _CACHE_DIR
+        mod._CACHE_DIR = tmp_path
+        try:
+            data = {"success": True, "content": "hello"}
+            _cache_put("https://example.com", "markdown", data)
+            result = _cache_get("https://example.com", "markdown")
+            assert result is not None
+            assert result["content"] == "hello"
+        finally:
+            mod._CACHE_DIR = old
+
+    def test_cache_eviction(self, tmp_path):
+        from webgrab.server_http import _cache_put, _cache_evict_if_needed, _CACHE_DIR, _CACHE_MAX_BYTES
+        import webgrab.server_http as mod
+
+        old_dir = _CACHE_DIR
+        old_max = _CACHE_MAX_BYTES
+        mod._CACHE_DIR = tmp_path
+        mod._CACHE_MAX_BYTES = 1000  # 1KB limit
+        try:
+            # Write enough data to exceed limit
+            for i in range(20):
+                _cache_put(f"https://example.com/{i}", "md", {"data": "x" * 200})
+            _cache_evict_if_needed()
+            # Some files should have been evicted
+            files = list(tmp_path.rglob("*"))
+            files = [f for f in files if f.is_file()]
+            assert len(files) < 20
+        finally:
+            mod._CACHE_DIR = old_dir
+            mod._CACHE_MAX_BYTES = old_max
+
+
+class TestFlareSolverr:
+    """Test flaresolverr method (integration - requires service)."""
+
+    def test_flaresolverr_not_running(self):
+        from webgrab.server_http import try_flaresolverr
+
+        result, err = try_flaresolverr("https://example.com", timeout=5)
+        # Should fail gracefully when flaresolverr isn't running
+        assert result is None
+        assert err is not None
+
+
+class TestFetchWithCache:
+    """Test that fetch_url uses and populates cache."""
+
+    def test_second_fetch_is_cached(self, tmp_path):
+        import webgrab.server_http as mod
+
+        old = mod._CACHE_DIR
+        mod._CACHE_DIR = tmp_path
+        try:
+            result1 = mod.fetch_url("https://example.com", fmt="text", timeout=10)
+            if result1["success"]:
+                result2 = mod.fetch_url("https://example.com", fmt="text", timeout=10)
+                assert result2.get("from_cache") is True
+        finally:
+            mod._CACHE_DIR = old
+
+
 class TestMCPServer:
     """Test MCP server setup."""
 
