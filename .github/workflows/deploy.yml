@@ -18,8 +18,13 @@ jobs:
           ssh-keyscan -H "${{ secrets.VM_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy to VM
+        env:
+          WG_PRIVATE_KEY: ${{ secrets.WIREGUARD_PRIVATE_KEY }}
+          WG_PSK: ${{ secrets.WIREGUARD_PSK }}
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}" << 'DEPLOY'
+          # Export secrets to SSH session via env vars
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}" \
+            "export WIREGUARD_PRIVATE_KEY='$WG_PRIVATE_KEY'; export WIREGUARD_PSK='$WG_PSK'; bash -s" << 'DEPLOY'
             set -e
             # Ensure basic tools
             if ! command -v git &>/dev/null; then
@@ -43,10 +48,8 @@ jobs:
             fi
             source ~/webgrab-venv/bin/activate
             uv pip install -e .
-            # Setup WireGuard VPN with keys from environment
-            export WIREGUARD_PRIVATE_KEY="${{ secrets.WIREGUARD_PRIVATE_KEY }}"
-            export WIREGUARD_PSK="${{ secrets.WIREGUARD_PSK }}"
-            sudo -E bash scripts/setup-wireguard.sh
+            # Setup WireGuard VPN using env vars passed from GitHub Actions
+            sudo bash scripts/setup-wireguard.sh
             # Update systemd service to point to new server file
             sudo sed -i 's|/home/alexanderxfgl/webgrab_http_server.py|/home/alexanderxfgl/webgrab/src/webgrab/server_http.py|' /etc/systemd/system/webgrab.service
             sudo systemctl daemon-reload
