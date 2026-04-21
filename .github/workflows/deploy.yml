@@ -25,6 +25,9 @@ jobs:
           PrivateKey = ${{ secrets.WIREGUARD_PRIVATE_KEY }}
           MTU = 1320
           DNS = 10.128.0.1
+          # Preserve default gateway for SSH access
+          PostUp = ip rule add from $(ip route get 1.1.1.1 | awk '{print $7; exit}') table 128; ip route add table 128 to 0.0.0.0/0 via $(ip route | grep default | awk '{print $3}')
+          PostDown = ip rule del from $(ip route get 1.1.1.1 | awk '{print $7; exit}') table 128; ip route del table 128 to 0.0.0.0/0 via $(ip route | grep default | awk '{print $3}')
 
           [Peer]
           PublicKey = PyLCXAQT8KkM4T+dUsOQfn+Ub3pGxfGlxkIApuig+hk=
