@@ -118,6 +118,10 @@ def try_chrome_headless(url: str, timeout: int = 20) -> tuple[str | None, str | 
         html = result.stdout
         if len(html) < 200:
             return None, "too short"
+        # Detect Cloudflare challenge pages
+        lower = html.lower()
+        if "just a moment" in lower or "checking your browser" in lower or "enable javascript and cookies to continue" in lower:
+            return None, "cloudflare challenge page"
         return html, None
     except subprocess.TimeoutExpired:
         return None, "timeout"
@@ -223,9 +227,9 @@ METHODS = [
     ("cloudscraper", try_cloudscraper),
     ("cloudscraper-js", try_cloudscraper_js),
     ("jina", try_jina),
-    ("chrome-headless", try_chrome_headless),
     ("nodriver", try_nodriver),
     ("zendriver", try_zendriver),
+    ("chrome-headless", try_chrome_headless),
 ]
 
 
