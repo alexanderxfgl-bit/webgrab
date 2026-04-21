@@ -8,20 +8,17 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    needs: []  # runs alongside CI, not dependent on it
     steps:
-      - uses: actions/checkout@v4
-
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.GCP_SSH_KEY_B64 }}" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.VM_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.VM_IP }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy to VM
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.VM_USER }}@${{ secrets.VM_IP }} << 'DEPLOY'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "${{ secrets.VM_USER }}@${{ secrets.VM_IP }}" << 'DEPLOY'
             set -e
             cd ~/webgrab
             git pull origin main
@@ -35,4 +32,4 @@ jobs:
       - name: Verify health
         run: |
           sleep 3
-          curl -sf http://${{ secrets.VM_IP }}:8721/health && echo "OK" || echo "WARN: health check failed"
+          curl -sf "http://${{ secrets.VM_IP }}:8721/health" && echo "OK" || echo "WARN: health check failed"
