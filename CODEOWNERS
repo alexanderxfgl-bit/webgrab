@@ -1,0 +1,5 @@
+# CODEOWNERS - require review for all changes
+# These users must approve PRs before merge
+
+# Default - all files require review from owner
+*       @alexanderxfgl-bit
