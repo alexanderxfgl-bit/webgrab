@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Setup SSH key
         run: |
@@ -50,4 +51,4 @@ jobs:
       - name: Verify health
         run: |
           sleep 3
-          curl -sf "http://${{ secrets.VM_IP }}:8721/health" && echo "OK" || echo "WARN: health check failed"
+          curl -sf "http://${{ secrets.VM_IP }}:8721/health" && echo "OK" || (echo "FAIL: health check failed" && exit 1)
