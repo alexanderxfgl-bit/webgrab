@@ -12,6 +12,25 @@ from fastmcp import FastMCP
 # Chrome binary
 _CHROME_BIN = os.environ.get("WEBGRAB_CHROME", "/usr/local/bin/chrome")
 
+
+# Anti-bot / challenge page detection
+_CHALLENGE_PHRASES = (
+    "just a moment",
+    "checking your browser",
+    "enable javascript and cookies to continue",
+    "please verify you are a human",
+    "cf-browser-verification",
+    "attention required",
+    "this page may be requiring captcha",
+)
+
+
+def _is_challenge_page(text: str) -> bool:
+    """Check if response is a bot challenge / CAPTCHA page."""
+    lower = text[:2000].lower()
+    return any(phrase in lower for phrase in _CHALLENGE_PHRASES)
+
+
 # Allowed auth token (set via WEBGRAB_TOKEN env var)
 _AUTH_TOKEN = os.environ.get("WEBGRAB_TOKEN", "")
 
@@ -35,6 +54,8 @@ def try_requests(url: str, timeout: int = 15) -> tuple[str | None, str | None]:
         html = resp.read().decode("utf-8", errors="replace")
         if len(html) < 200:
             return None, "too short"
+        if _is_challenge_page(html):
+            return None, "challenge page detected"
         return html, None
     except Exception as e:
         return None, str(e)[:200]
@@ -54,6 +75,8 @@ def try_cloudscraper(url: str, timeout: int = 15) -> tuple[str | None, str | Non
             return None, "403 forbidden"
         if len(r.text) < 200:
             return None, "too short"
+        if _is_challenge_page(r.text):
+            return None, "challenge page detected"
         return r.text, None
     except ImportError:
         return None, "cloudscraper not installed"
@@ -75,6 +98,8 @@ def try_cloudscraper_js(url: str, timeout: int = 20) -> tuple[str | None, str | 
             return None, "403 forbidden"
         if len(r.text) < 200:
             return None, "too short"
+        if _is_challenge_page(r.text):
+            return None, "challenge page detected"
         return r.text, None
     except ImportError:
         return None, "cloudscraper not installed"
@@ -97,6 +122,8 @@ def try_jina(url: str, timeout: int = 20) -> tuple[str | None, str | None]:
         # reject if jina warns about errors
         if "403" in text[:200] or "error" in text[:200].lower():
             return None, "jina returned error content"
+        if _is_challenge_page(text):
+            return None, "challenge page detected"
         return text, None
     except Exception as e:
         return None, str(e)[:200]
@@ -118,14 +145,8 @@ def try_chrome_headless(url: str, timeout: int = 20) -> tuple[str | None, str | 
         html = result.stdout
         if len(html) < 200:
             return None, "too short"
-        # Detect Cloudflare challenge pages
-        lower = html.lower()
-        if (
-            "just a moment" in lower
-            or "checking your browser" in lower
-            or "enable javascript and cookies to continue" in lower
-        ):
-            return None, "cloudflare challenge page"
+        if _is_challenge_page(html):
+            return None, "challenge page detected"
         return html, None
     except subprocess.TimeoutExpired:
         return None, "timeout"
