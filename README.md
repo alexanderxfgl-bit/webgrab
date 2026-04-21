@@ -151,3 +151,4 @@ uv run pytest tests/test_integration.py -m "local" -n auto
 ## CI
 
 GitHub Actions runs lint, tests, and integration tests on every push/PR. Only CI-safe tests run in CI; flaky external sites are marked `local` and run manually.
+# test
