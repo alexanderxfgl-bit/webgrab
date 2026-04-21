@@ -145,8 +145,8 @@ class TestDiskCache:
     """Test disk cache functions."""
 
     def test_cache_miss(self, tmp_path):
-        from webgrab.server_http import _cache_get, _CACHE_DIR
         import webgrab.server_http as mod
+        from webgrab.server_http import _CACHE_DIR, _cache_get
 
         old = _CACHE_DIR
         mod._CACHE_DIR = tmp_path
@@ -156,8 +156,8 @@ class TestDiskCache:
             mod._CACHE_DIR = old
 
     def test_cache_put_and_get(self, tmp_path):
-        from webgrab.server_http import _cache_get, _cache_put, _CACHE_DIR
         import webgrab.server_http as mod
+        from webgrab.server_http import _CACHE_DIR, _cache_get, _cache_put
 
         old = _CACHE_DIR
         mod._CACHE_DIR = tmp_path
@@ -171,8 +171,8 @@ class TestDiskCache:
             mod._CACHE_DIR = old
 
     def test_cache_eviction(self, tmp_path):
-        from webgrab.server_http import _cache_put, _cache_evict_if_needed, _CACHE_DIR, _CACHE_MAX_BYTES
         import webgrab.server_http as mod
+        from webgrab.server_http import _CACHE_DIR, _CACHE_MAX_BYTES, _cache_evict_if_needed, _cache_put
 
         old_dir = _CACHE_DIR
         old_max = _CACHE_MAX_BYTES
