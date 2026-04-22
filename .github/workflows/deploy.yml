@@ -56,8 +56,13 @@ jobs:
             fi
             source ~/webgrab-venv/bin/activate
             uv pip install -e .
-            # Update systemd service to point to new server file
+            # Update systemd service to point to new server file + set FlareSolverr env var
             sudo sed -i 's|/home/alexanderxfgl/webgrab_http_server.py|/home/alexanderxfgl/webgrab/src/webgrab/server_http.py|' /etc/systemd/system/webgrab.service
+            # Ensure FlareSolverr env var is set
+            if ! grep -q 'WEBGRAB_FLARESOLVERR_URL' /etc/systemd/system/webgrab.service; then
+              sudo sed -i '/ExecStart=/i Environment=WEBGRAB_FLARESOLVERR_URL=http://104.154.30.199:8191/v1' /etc/systemd/system/webgrab.service
+              sudo sed -i '/ExecStart=/i Environment=WEBGRAB_CHROME=/usr/local/bin/chrome' /etc/systemd/system/webgrab.service
+            fi
             sudo systemctl daemon-reload
             sudo systemctl restart webgrab
             sleep 2
