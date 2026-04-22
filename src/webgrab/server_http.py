@@ -402,11 +402,22 @@ def fetch_url(url: str, fmt: str = "markdown", timeout: int = 30) -> dict:
     method_used = None
     execution_log = []
 
+    challenge_detected = False
+
     for name, fn in METHODS:
+        # If challenge detected and we're not at FlareSolverr yet, skip ahead
+        if challenge_detected and name != "flaresolverr":
+            execution_log.append(
+                {"method": name, "status": "skipped", "error": "challenge detected, skipping to flaresolverr"}
+            )
+            continue
+
         method_start = time.time()
         try:
             result, err = fn(url, timeout=timeout)
             method_elapsed = time.time() - method_start
+            if err and "challenge" in (err or "").lower():
+                challenge_detected = True
             if result:
                 elapsed = time.time() - start
                 method_used = name
